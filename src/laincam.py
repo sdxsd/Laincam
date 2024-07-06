@@ -32,8 +32,16 @@ from PIL import Image
 from pillow_lut import load_cube_file
 import argparse as ap
 import math
+import numpy as np
+import cv2
 
 NOISE_DATA = "PICT1629.tif"
+
+def determine_contrast_and_saturation(img_path):
+    img = cv2.imread(img_path)
+    img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    return (img_grey.std(), img_hsv[:,:,1].mean()) # Contrast & Saturation
 
 def apply_noise(noise, base):
     result = ImageChops.overlay(base, noise)
@@ -52,27 +60,30 @@ def resize(noise, base):
         return (resized)
     return (base)
 
-def enhance_image(base):
+def enhance_image(base, contrast, saturation):
+    # lut = load_cube_file("./LUT/P1080675_Look.cube")
     lut = load_cube_file("./LUT/kyocerasix.cube")
     base = base.filter(lut)
     base = base.filter(ImageFilter.SHARPEN)
-    contrast = ImageEnhance.Contrast(base)
-    # color = ImageEnhance.Color(base)
-    base = contrast.enhance(0.90)
-    # base = color.enhance(0.)
-    return (base)
+
+    enh_contrast = ImageEnhance.Contrast(base)
+    print("Contrast: {}, Saturation: {}".format(contrast / 100, saturation / 100))
+    enhanced_contrast = enh_contrast.enhance((1.0 + (0.3 - (contrast / 100))))
+    enh_color = ImageEnhance.Color(enhanced_contrast)
+    result = enh_color.enhance(1.0 + (0.6 - (saturation / 100)))
+    return (result)
 
 def main():
     parser = ap.ArgumentParser(prog="Laincam", description="Kyocera look emulator", epilog="Laincam")
     parser.add_argument("input_img")
-    # parser.add_argument("ofile")
     args = parser.parse_args()
     base = Image.open(args.input_img)
     noise = Image.open(NOISE_DATA)
     base = resize(noise, base)
-    base = enhance_image(base)
+    contrast, saturation = determine_contrast_and_saturation(args.input_img)
+    base = enhance_image(base, contrast, saturation)
     base = apply_noise(noise, base)
     base.show()
-
+    base.save("digified_" + args.input_img)
 
 main()
