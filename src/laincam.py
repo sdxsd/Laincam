@@ -25,41 +25,51 @@
 
 # A program is free software if users have all of these freedoms.
 
-import argparse as ap
-from PIL import Image
-from PIL import ImageFilter
 from PIL import ImageEnhance
+from PIL import ImageFilter
 from PIL import ImageChops
+from PIL import Image
+import argparse as ap
 import math
 
-def load_image(image_name):
-    img = Image.open(image_name)
-    return (img)
+NOISE_DATA = "PICT1629.tif"
 
-def load_noise_overlay(noise_img_path):
-    noise = Image.open(noise_img_path)
-    return (noise)
-
-def prep_img(noise, base):
-    res = noise.size
-    x = res[0] * (1 / math.sqrt(2))
-    y = res[1] * (1 / math.sqrt(2))
-    base = base.resize((int(x), int(y)), Image.Resampling.BILINEAR)
-    base = base.filter(ImageFilter.SHARPEN)
-    enh = ImageEnhance.Contrast(base)
-    base = enh.enhance(1.25)
+def apply_noise(noise, base):
     result = ImageChops.overlay(base, noise)
-    result.save("bloop.jpg")
+    return (result)
+
+def resize(noise, base):
+    bwidth, bheight = base.size
+    nwidth, nheight = noise.size
+    true_nwidth = int(nwidth * (1 / math.sqrt(2)))
+    true_nheight = int(nheight * (1 / math.sqrt(2)))
+    if (bwidth > true_nwidth):
+        new_bheight = int(bheight * (true_nwidth / bwidth))
+        resized = base.resize((true_nwidth, new_bheight), Image.Resampling.BICUBIC)
+        new_bheight = int(new_bheight * (nwidth / true_nwidth))
+        resized = base.resize((nwidth, new_bheight), Image.Resampling.BICUBIC)
+        return (resized)
     return (base)
 
+def enhance_image(base):
+    base = base.filter(ImageFilter.SHARPEN)
+    contrast = ImageEnhance.Contrast(base)
+    color = ImageEnhance.Color(base)
+    base = contrast.enhance(1.05)
+    base = color.enhance(0.90)
+    return (base)
 
 def main():
     parser = ap.ArgumentParser(prog="Laincam", description="Kyocera look emulator", epilog="Laincam")
     parser.add_argument("input_img")
+    parser.add_argument("ofile")
     args = parser.parse_args()
-    img = load_image(args.input_img)
-    noise = load_noise_overlay("PICT1629.tif")
-    prep_img(noise, img)
+    base = Image.open(args.input_img)
+    noise = Image.open(NOISE_DATA)
+    base = resize(noise, base)
+    base = enhance_image(base)
+    base = apply_noise(noise, base)
+    base.save(args.ofile)
 
 
 main()
