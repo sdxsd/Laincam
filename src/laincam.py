@@ -29,6 +29,7 @@ from PIL import ImageEnhance
 from PIL import ImageFilter
 from PIL import ImageChops
 from PIL import Image
+from pillow_lut import load_cube_file
 import argparse as ap
 import math
 
@@ -52,24 +53,26 @@ def resize(noise, base):
     return (base)
 
 def enhance_image(base):
+    lut = load_cube_file("./LUT/kyocerasix.cube")
+    base = base.filter(lut)
     base = base.filter(ImageFilter.SHARPEN)
     contrast = ImageEnhance.Contrast(base)
-    color = ImageEnhance.Color(base)
-    base = contrast.enhance(1.05)
-    base = color.enhance(0.90)
+    # color = ImageEnhance.Color(base)
+    base = contrast.enhance(0.90)
+    # base = color.enhance(0.)
     return (base)
 
 def main():
     parser = ap.ArgumentParser(prog="Laincam", description="Kyocera look emulator", epilog="Laincam")
     parser.add_argument("input_img")
-    parser.add_argument("ofile")
+    # parser.add_argument("ofile")
     args = parser.parse_args()
     base = Image.open(args.input_img)
     noise = Image.open(NOISE_DATA)
     base = resize(noise, base)
     base = enhance_image(base)
     base = apply_noise(noise, base)
-    base.save(args.ofile)
+    base.show()
 
 
 main()
