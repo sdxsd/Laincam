@@ -45,6 +45,7 @@ def determine_contrast_and_saturation(img_path):
 
 def apply_noise(noise, base):
     result = ImageChops.overlay(base, noise)
+    # result = ImageChops.soft_light(base, noise)
     return (result)
 
 def resize(noise, base):
@@ -54,24 +55,33 @@ def resize(noise, base):
     true_nheight = int(nheight * (1 / math.sqrt(2)))
     if (bwidth > true_nwidth):
         new_bheight = int(bheight * (true_nwidth / bwidth))
-        resized = base.resize((true_nwidth, new_bheight), Image.Resampling.BICUBIC)
+        resized = base.resize((true_nwidth, new_bheight), Image.Resampling.NEAREST)
         new_bheight = int(new_bheight * (nwidth / true_nwidth))
-        resized = base.resize((nwidth, new_bheight), Image.Resampling.BICUBIC)
+        resized = base.resize((nwidth, new_bheight), Image.Resampling.HAMMING)
         return (resized)
     return (base)
 
-def enhance_image(base, contrast, saturation):
+def enhance_image(base, contrast, saturation, noise):
+    # base = base.filter(ImageFilter.SHARPEN)
     # lut = load_cube_file("./LUT/P1080675_Look.cube")
     lut = load_cube_file("./LUT/kyocerasix.cube")
     base = base.filter(lut)
-    base = base.filter(ImageFilter.SHARPEN)
 
-    enh_contrast = ImageEnhance.Contrast(base)
-    print("Contrast: {}, Saturation: {}".format(contrast / 100, saturation / 100))
-    enhanced_contrast = enh_contrast.enhance((1.0 + (0.3 - (contrast / 100))))
-    enh_color = ImageEnhance.Color(enhanced_contrast)
-    result = enh_color.enhance(1.0 + (0.6 - (saturation / 100)))
-    return (result)
+    base = base.filter(ImageFilter.GaussianBlur(0.5))
+    base = apply_noise(noise, base)
+    base = base.filter(ImageFilter.UnsharpMask(0.5))
+
+    # enh_sharpness = ImageEnhance.Sharpness(base)
+    # result = enh_sharpness.enhance(1.1)
+    # return (result)
+
+    # enh_contrast = ImageEnhance.Contrast(base)
+    # print("Contrast: {}, Saturation: {}".format(contrast / 100, saturation / 100))
+    # enhanced_contrast = enh_contrast.enhance((1.0 + (0.4 - (contrast / 100))))
+    # enh_color = ImageEnhance.Color(enhanced_contrast)
+    # result = enh_color.enhance(1.0 + (0.6 - (saturation / 100)))
+    # return (result)
+    return (base)
 
 def main():
     parser = ap.ArgumentParser(prog="Laincam", description="Kyocera look emulator", epilog="Laincam")
@@ -81,8 +91,7 @@ def main():
     noise = Image.open(NOISE_DATA)
     base = resize(noise, base)
     contrast, saturation = determine_contrast_and_saturation(args.input_img)
-    base = enhance_image(base, contrast, saturation)
-    base = apply_noise(noise, base)
+    base = enhance_image(base, contrast, saturation, noise)
     base.show()
     base.save("digified_" + args.input_img)
 
